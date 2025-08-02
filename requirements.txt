@@ -1,0 +1,27 @@
+# Core libraries
+numpy
+pandas
+os
+
+# Visualization
+matplotlib
+
+# Machine Learning
+scikit-learn
+RandomForestRegressor
+RandomForestClassifier
+train_test_split
+KFold
+r2_score, mean_absolute_error, mean_squared_error
+xgboost 
+lightgbm
+ngboost
+
+# Streamlit app
+streamlit
+
+# For saving/loading models
+joblib
+
+
+
