@@ -43,6 +43,11 @@ Each script trains a model or evaluates it using scoring metrics like RMSE, MAE,
 
 - `images/`:  
   Stores graphs, charts, and visualizations such as prediction vs actual plots, error analysis, and evaluation results.
+  
+- `ui/`:  
+  Contains early user interface prototypes for the project.  
+  - `prototype_ui.py`: A layout-only Streamlit app used to visualize the intended structure of the user interface (does not yet connect to   trained models).
+
 
 - `README.md`:  
   Project overview, structure, and updates.
