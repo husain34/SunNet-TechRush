@@ -5,20 +5,21 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
 import joblib
 
-# Load the dataset
+# Load the data
 data = pd.read_csv("solarpowergeneration.csv").dropna()
 
+#create additional features to help the model
 data["sin_time"] = np.sin(2 * np.pi * data["distance-to-solar-noon"])
 data["cos_time"] = np.cos(2 * np.pi * data["distance-to-solar-noon"])
 data["temp_squared"] = data["temperature"] ** 2
 data["wind_speed_humidity"] = data["wind-speed"] * data["humidity"]
 data["pressure_humidity"] = data["average-pressure-(period)"] * data["humidity"]
 
-# Split features and target
+# seperate input features and target
 X = data.drop(columns=['power-generated']).values
 y = data['power-generated'].values
 
-# K-Fold Cross-Validation
+
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
 r2_scores = []
 
@@ -36,7 +37,7 @@ for fold, (train_index, test_index) in enumerate(kf.split(X), 1):
 
     print(f"Fold {fold} R² Score: {r2:.4f}")
 
-# Average R² Score across folds
+# Average performance
 avg_r2 = np.mean(r2_scores)
 print(f"\n📊 Average R² Score across 5 folds: {avg_r2:.4f}")
 
