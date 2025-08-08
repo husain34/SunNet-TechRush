@@ -24,3 +24,15 @@ The following scripts are located in `src/experiments/`:
 Each script trains a model or evaluates it using scoring metrics like RMSE, MAE, R².
 
 📌 These  are testing and experimentation scripts that guide model selection.
+
+
+## 📁 Project Structure
+
+- `data/`
+  - `raw/`: Contains the original input datasets used for model training and evaluation.
+    - `train.csv`: Dataset used for training models.
+    - `test.csv`: Dataset used for testing/inference.
+    - `solarpowergeneration.csv`: Full dataset with solar energy generation and weather features.
+
+- `models/`:  
+  Contains saved machine learning models in `.pkl` format, such as XGBoost, and ensemble model.
