@@ -30,7 +30,7 @@ xg.fit(X_train, y_train)
 pred_rf = rf.predict(X_test)
 pred_xg = xg.predict(X_test)
 
-# Weighted ensemble (you can adjust the weights)
+# Weighted ensemble 
 w_rf = 0.1
 w_xg = 0.9
 ensemble_preds = (w_rf * pred_rf) + (w_xg * pred_xg)
@@ -109,7 +109,7 @@ for train_index, test_index in kf.split(X):
 # Print average R² score across all folds
 print(f"\nAverage R² Score across all folds: {np.mean(r2_scores):.3f}")
 
-# Train final models on the full dataset to save
+# Train final models on the full dataset
 rf.fit(X, y)
 xg.fit(X, y)
 
@@ -130,25 +130,25 @@ import matplotlib.pyplot as plt
 import joblib
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-# === Load the ensemble model and data ===
+# Load the ensemble model and data
 model = joblib.load("weighted_ensemble_model.pkl")
 data = pd.read_csv("solarpowergeneration.csv").dropna()
 
 X = data[model['columns']].values
 y_true = data['power-generated'].values
 
-# === Predict using the saved ensemble model ===
+#Predict using the saved ensemble model
 pred_rf = model['rf'].predict(X)
 pred_xg = model['xg'].predict(X)
 w_rf = model['weights']['rf']
 w_xg = model['weights']['xg']
 y_pred = (w_rf * pred_rf) + (w_xg * pred_xg)
 
-# === Clip negative predictions and actuals ===
+# Clip negative predictions and actuals
 y_pred = np.clip(y_pred, 0, None)
 y_true = np.clip(y_true, 0, None)
 
-# === Plot Actual vs Predicted ===
+#Plot Actual vs Predicted
 plt.figure(figsize=(10, 6))
 plt.scatter(y_true, y_pred, alpha=0.5, label='Predictions', color='cornflowerblue')
 plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'r--', linewidth=2, label='Perfect Prediction')
@@ -160,7 +160,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-# === Zero-actual value error analysis ===
+# Zero-actual value error analysis
 zero_actual_indices = (y_true == 0)
 num_zeros = np.sum(zero_actual_indices)
 
@@ -174,7 +174,7 @@ if num_zeros > 0:
     print(f"    - Min Prediction: {np.min(pred_when_zero):.4f}")
     print(f"    - Avg Absolute Error: {avg_error_when_zero:.4f}")
 
-    # === Plot predictions for zero-actual samples ===
+    # Plot predictions for zero-actual samples
     plt.figure(figsize=(10, 5))
     plt.plot(pred_when_zero, 'o-', color='orange', label='Predicted Value')
     plt.axhline(0, color='red', linestyle='--', label='True Value (0)')
@@ -188,7 +188,7 @@ if num_zeros > 0:
 else:
     print("\n✅ No samples where actual value = 0.")
 
-# === Standard Regression Metrics ===
+#  Standard Regression Metrics 
 mae = mean_absolute_error(y_true, y_pred)
 rmse = np.sqrt(mean_squared_error(y_true, y_pred))
 r2 = r2_score(y_true, y_pred)
@@ -198,18 +198,18 @@ print(f"    - MAE  : {mae:.4f}")
 print(f"    - RMSE : {rmse:.4f}")
 print(f"    - R²   : {r2:.4f}")
 
-# === SMAPE ===
+# SMAPE
 epsilon = 1e-5
 smape = 100 * np.mean(
     2 * np.abs(y_pred - y_true) / (np.abs(y_pred) + np.abs(y_true) + epsilon)
 )
 print(f"\n🔁 SMAPE: {smape:.2f}%")
 
-# === Logarithmic Error ===
+#  Logarithmic Error
 log_error = np.mean(np.abs(np.log1p(y_pred + epsilon) - np.log1p(y_true + epsilon)))
 print(f"🧮 Mean Logarithmic Error: {log_error:.4f}")
 
-# === Custom Scale-Sensitive Weighted Error ===
+#  Custom Scale-Sensitive Weighted Error
 scale_sensitive_weight = 1 / (np.abs(y_true) + 1)
 scale_sensitive_weight = np.clip(scale_sensitive_weight, 0, 1)  # Optional cap
 scaled_error = np.abs(y_true - y_pred) * scale_sensitive_weight
@@ -290,14 +290,14 @@ if len(y_true) != len(y_pred):
     print(f"❌ Length mismatch! y_true: {len(y_true)}, y_pred: {len(y_pred)}")
     exit()
 
-# === Error percentage ===
+# Error percentage 
 epsilon = 1e-5
 percentage_error = np.abs((y_true - y_pred) / (y_true + epsilon))
 weights = y_true
 weighted_avg_error = np.average(percentage_error, weights=weights) * 100
 print(f"📊 Weighted Average Percentage Error: {weighted_avg_error:.2f}%")
 
-# === Error when actual output is zero ===
+# Error when actual output is zero 
 zero_actual_indices = (y_true == 0)
 num_zeros = np.sum(zero_actual_indices)
 
@@ -310,7 +310,7 @@ print(f"    - Max Prediction: {np.max(pred_when_zero):.4f}")
 print(f"    - Min Prediction: {np.min(pred_when_zero):.4f}")
 print(f"    - Avg Absolute Error: {avg_error_when_zero:.4f}")
 
-# === Plot Actual vs Predicted ===
+# Plot Actual vs Predicted 
 plt.figure(figsize=(10, 6))
 plt.scatter(y_true, y_pred, alpha=0.5, label='Predictions', color='cornflowerblue')
 plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'r--', linewidth=2, label='Perfect Prediction')
@@ -325,7 +325,7 @@ plt.show()
 
 
 
-    # === Plot predictions for zero-actual samples ===
+    # Plot predictions for zero-actual samples 
 plt.figure(figsize=(10, 5))
 plt.plot(pred_when_zero, 'o-', color='orange', label='Predicted Value')
 plt.axhline(0, color='red', linestyle='--', label='True Value (0)')
@@ -370,7 +370,7 @@ r2 = r2_score(y_test, pred_rf)
 
 print(f"\nAverage R² Score across all folds: {r2:.3f}")
 
-# Step 7: Train final model on full data and save
+#Train final model on full data and save
 final_model = RandomForestRegressor(n_estimators=100, random_state=42)
 final_model.fit(X, y)
 joblib.dump(final_model, 'random_forest_model.pkl')
@@ -399,14 +399,14 @@ y_true = data[target].values
 # Predict using the saved model
 y_pred = model.predict(X)
 
-# === Error percentage ===
+#Error percentage 
 epsilon = 1e-5
 percentage_error = np.abs((y_true - y_pred) / (y_true + epsilon))
 weights = y_true
 weighted_avg_error = np.average(percentage_error, weights=weights) * 100
 print(f"📊 Weighted Average Percentage Error: {weighted_avg_error:.2f}%")
 
-# === Plot Actual vs Predicted ===
+# Plot Actual vs Predicted
 plt.figure(figsize=(10, 6))
 plt.scatter(y_true, y_pred, alpha=0.5, label='Predictions', color='cornflowerblue')
 plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'r--', linewidth=2, label='Perfect Prediction')
@@ -419,7 +419,7 @@ plt.grid(True)
 plt.tight_layout()
 plt.show()
 
-# === Error when actual output is zero ===
+# Error when actual output is zero
 zero_actual_indices = (y_true == 0)
 num_zeros = np.sum(zero_actual_indices)
 
@@ -433,7 +433,7 @@ if num_zeros > 0:
     print(f"    - Min Prediction: {np.min(pred_when_zero):.4f}")
     print(f"    - Avg Absolute Error: {avg_error_when_zero:.4f}")
 
-    # === Plot predictions for zero-actual samples ===
+    #Plot predictions for zero-actual samples 
     plt.figure(figsize=(10, 5))
     plt.plot(pred_when_zero, 'o-', color='orange', label='Predicted Value')
     plt.axhline(0, color='red', linestyle='--', label='True Value (0)')
@@ -524,7 +524,7 @@ weights = y_true
 weighted_avg_error = np.average(percentage_error, weights=weights) * 100
 print(f"📊 Weighted Average Percentage Error: {weighted_avg_error:.2f}%")
 
-# === Error when actual output is zero ===
+#Error when actual output is zero
 zero_actual_indices = (y_true == 0)
 num_zeros = np.sum(zero_actual_indices)
 
@@ -537,7 +537,7 @@ print(f"    - Max Prediction: {np.max(pred_when_zero):.4f}")
 print(f"    - Min Prediction: {np.min(pred_when_zero):.4f}")
 print(f"    - Avg Absolute Error: {avg_error_when_zero:.4f}")
 
-# === Plot Actual vs Predicted ===
+#Plot Actual vs Predicted
 plt.figure(figsize=(10, 6))
 plt.scatter(y_true, y_pred, alpha=0.5, label='Predictions', color='cornflowerblue')
 plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'r--', linewidth=2, label='Perfect Prediction')
@@ -552,7 +552,7 @@ plt.show()
 
 
 
-    # === Plot predictions for zero-actual samples ===
+    #Plot predictions for zero-actual samples
 plt.figure(figsize=(10, 5))
 plt.plot(pred_when_zero, 'o-', color='orange', label='Predicted Value')
 plt.axhline(0, color='red', linestyle='--', label='True Value (0)')
@@ -631,14 +631,14 @@ y_true = data[target].values
 # Predict using the saved model
 y_pred = model.predict(X)
 
-# === Error percentage ===
+#Error percentage
 epsilon = 1e-5
 percentage_error = np.abs((y_true - y_pred) / (y_true + epsilon))
 weights = y_true
 weighted_avg_error = np.average(percentage_error, weights=weights) * 100
 print(f"📊 Weighted Average Percentage Error: {weighted_avg_error:.2f}%")
 
-# === Error when actual output is zero ===
+#Error when actual output is zero
 zero_actual_indices = (y_true == 0)
 num_zeros = np.sum(zero_actual_indices)
 
@@ -651,7 +651,7 @@ print(f"    - Max Prediction: {np.max(pred_when_zero):.4f}")
 print(f"    - Min Prediction: {np.min(pred_when_zero):.4f}")
 print(f"    - Avg Absolute Error: {avg_error_when_zero:.4f}")
 
-# === Plot Actual vs Predicted ===
+#Plot Actual vs Predicted
 plt.figure(figsize=(10, 6))
 plt.scatter(y_true, y_pred, alpha=0.5, label='Predictions', color='cornflowerblue')
 plt.plot([y_true.min(), y_true.max()], [y_true.min(), y_true.max()], 'r--', linewidth=2, label='Perfect Prediction')
@@ -666,7 +666,7 @@ plt.show()
 
 
 
-    # === Plot predictions for zero-actual samples ===
+    #Plot predictions for zero-actual samples
 plt.figure(figsize=(10, 5))
 plt.plot(pred_when_zero, 'o-', color='orange', label='Predicted Value')
 plt.axhline(0, color='red', linestyle='--', label='True Value (0)')
