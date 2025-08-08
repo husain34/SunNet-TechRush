@@ -36,3 +36,14 @@ Each script trains a model or evaluates it using scoring metrics like RMSE, MAE,
 
 - `models/`:  
   Contains saved machine learning models in `.pkl` format, such as XGBoost, and ensemble model.
+
+- `src/`:
+  - `models/`: Python scripts for training and saving models.
+  - `experiments/`: Scripts for running different model experiments, performance evaluation, and visualization.
+
+- `images/`:  
+  Stores graphs, charts, and visualizations such as prediction vs actual plots, error analysis, and evaluation results.
+
+- `README.md`:  
+  Project overview, structure, and updates.
+
