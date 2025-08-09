@@ -1,210 +1,186 @@
-import pandas as pd
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.model_selection import train_test_split
-import xgboost as xgb
-import lightgbm as lgb
+import os
 import joblib
 import numpy as np
-import joblib
-import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-import os
+import matplotlib.pyplot as plt
 
-train_data = pd.read_csv("train_data.csv")
-test_data = pd.read_csv("test_data.csv")
 
-train_data = train_data.fillna(train_data.mean(numeric_only=True))
-test_data = test_data.fillna(test_data.mean(numeric_only=True))
-label = 'power-generated'
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
-def feature_engineering(df):
 
-    # Weather Relations with data from dataset for accurate
-    df["temp_squared"] = df["temperature"] ** 2  # Extreme heat effects
-    df["wind_speed_humidity"] = df["wind-speed"] * df["humidity"]  # Mist
+from sklearn.model_selection import train_test_split
 
-    df["daylight_factor"] = np.maximum(0, np.cos(2 * np.pi * (df["distance-to-solar-noon"] - 0.5)))  # Approximates Sun Angle and peak at noon
+# Gradient boosting keeping both, haven’t decided which I like more yet
+import xgboost as xgb
+import lightgbm as lgb
 
-    df["rain_or_fog_likelihood"] = ((df["sky-cover"] >= 3) & (df["humidity"] >= 80) & (df["visibility"] <= 6)).astype(int)  # Flags potential rain or fog conditions
 
-    df["pollution_proxy"] = ((df["visibility"] < 7) & (df["average-pressure-(period)"] < 29.9)).astype(int)  # Poor visibility and low pressure — likely pollution or haze
+#  Load data 
+# Might need to wrap this in a try/except later
+train_df = pd.read_csv("train_data.csv")
+test_df = pd.read_csv("test_data.csv")
 
-    df["overheat_flag"] = (df["temperature"] > 30).astype(int)  # Very hot days — potential panel efficiency drop
+# Fill missing numeric values (quick and dirty)
+train_df = train_df.fillna(train_df.mean(numeric_only=True))
+test_df = test_df.fillna(test_df.mean(numeric_only=True))
 
-    df["dew_morning_risk"] = ((df["temperature"] < 10) & (df["humidity"] > 90) & (df["distance-to-solar-noon"] < 0.2) ).astype(int)  # Cold, humid early mornings — possible dew or frost risk
+TARGET = 'power-generated'
 
-    df.drop(columns=["distance-to-solar-noon"])
 
+#  Feature engineering 
+def add_weather_features(df):
+    # Temp squared — extreme heat has non-linear impact on panels
+    df['temp_sq'] = df['temperature'] ** 2
+
+    # Interaction term: wind and humidity together can mean fog or mist
+    df['wind_x_humidity'] = df['wind-speed'] * df['humidity']
+
+    # Approximation of sun angle (cosine transform)
+    df['daylight_factor'] = np.maximum(
+        0, np.cos(2 * np.pi * (df['distance-to-solar-noon'] - 0.5))
+    )
+
+    # Simple weather condition flags
+    df['rain_or_fog'] = (
+        (df['sky-cover'] >= 3) &
+        (df['humidity'] >= 80) &
+        (df['visibility'] <= 6)
+    ).astype(int)
+
+    # Guessing pollution presence
+    df['pollution_guess'] = (
+        (df['visibility'] < 7) &
+        (df['average-pressure-(period)'] < 29.9)
+    ).astype(int)
+
+    # Too hot days  panels get lazy
+    df['too_hot'] = (df['temperature'] > 30).astype(int)
+
+    # Dew or frost risk early morning
+    df['morning_dew_flag'] = (
+        (df['temperature'] < 10) &
+        (df['humidity'] > 90) &
+        (df['distance-to-solar-noon'] < 0.2)
+    ).astype(int)
+
+    # Dropping without inplace  I always forget if this matters
+    df.drop(columns=['distance-to-solar-noon'], inplace=False)
     return df
 
-train_data = feature_engineering(train_data)
-test_data = feature_engineering(test_data)
 
-X_train = train_data.drop(columns=[label])
-X_test = test_data.drop(columns=[label])
-y_train = train_data[label]
-y_test = test_data[label]
+# Apply custom features
+train_df = add_weather_features(train_df)
+test_df = add_weather_features(test_df)
 
-# Classification Model
+X_train = train_df.drop(columns=[TARGET])
+y_train = train_df[TARGET]
+X_test = test_df.drop(columns=[TARGET])
+y_test = test_df[TARGET]
+
+
+#  Stage 1: Binary classification (power vs no power) 
 y_train_binary = (y_train > 0).astype(int)
 
-print("\n Binary Classifier (Power Generated vs. No Power)")
-classifier = RandomForestClassifier(n_estimators=200, random_state=42, class_weight='balanced', n_jobs=-1)
-classifier.fit(X_train, y_train_binary)
-binary_predictions = classifier.predict(X_test)
-
-# --- Stage 2: Regression Model
-print("\n Ensemble Regressor ")
-rf = RandomForestRegressor(n_estimators=500, random_state=42, n_jobs=-1)
-xg = xgb.XGBRegressor(n_estimators=500, learning_rate=0.05, random_state=42, n_jobs=-1)
-lgbm = lgb.LGBMRegressor(n_estimators=500, learning_rate=0.05, random_state=42, n_jobs=-1)
-
-rf.fit(X_train, y_train)
-xg.fit(X_train, y_train)
-lgbm.fit(X_train, y_train)
-
-pred_rf = rf.predict(X_test)
-pred_xg = xg.predict(X_test)
-pred_lgbm = lgbm.predict(X_test)
-w_rf = 0.2
-w_xg = 0.4
-w_lgb = 0.4
-ensemble_reg_preds = (w_rf * pred_rf) + (w_xg * pred_xg) + (w_lgb * pred_lgbm)
-
-final_ensemble_preds = np.where(binary_predictions == 1, ensemble_reg_preds, 0)
-final_ensemble_preds[final_ensemble_preds < 0] = 0
+print("\n[Stage 1] Training classifier...")
+clf_stage1 = RandomForestClassifier(
+    n_estimators=200, random_state=42, class_weight='balanced', n_jobs=-1
+)
+clf_stage1.fit(X_train, y_train_binary)
+binary_preds = clf_stage1.predict(X_test)
 
 
-r2 = r2_score(y_test, final_ensemble_preds)
-mae = mean_absolute_error(y_test, final_ensemble_preds)
-rmse = np.sqrt(mean_squared_error(y_test, final_ensemble_preds))
+#  Stage 2: Regression models 
+print("\n[Stage 2] Training regressors...")
+rf_model = RandomForestRegressor(n_estimators=500, random_state=42, n_jobs=-1)
+xgb_model = xgb.XGBRegressor(n_estimators=500, learning_rate=0.05, random_state=42, n_jobs=-1)
+lgbm_model = lgb.LGBMRegressor(n_estimators=500, learning_rate=0.05, random_state=42, n_jobs=-1)
 
-print("\n Scores \n")
-print(f"Two-Stage Ensemble R² Score  : {r2:.4f}")
-print(f"Two-Stage Ensemble MAE       : {mae:.2f}")
-print(f"Two-Stage Ensemble RMSE      : {rmse:.2f}")
+# Training  could be parallelized but meh
+for model in (rf_model, xgb_model, lgbm_model):
+    model.fit(X_train, y_train)
 
-ensemble_model = {
-    'classifier': classifier,
-    'rf': rf,
-    'xg': xg,
-    'lgb': lgbm,
-    'weights': {'rf': w_rf, 'xg': w_xg, 'lgb': w_lgb},
-    'columns': list(X_train.columns)
+# Predictions
+rf_pred = rf_model.predict(X_test)
+xgb_pred = xgb_model.predict(X_test)
+lgb_pred = lgbm_model.predict(X_test)
+
+# Weighting  eyeballed, no hyperopt yet
+w_rf, w_xgb, w_lgb = 0.2, 0.4, 0.4
+ensemble_pred = (rf_pred * w_rf) + (xgb_pred * w_xgb) + (lgb_pred * w_lgb)
+
+# Combine classifier + regressor
+final_pred = np.where(binary_preds == 1, ensemble_pred, 0)
+final_pred[final_pred < 0] = 0  # Avoid negative predictions
+
+
+#  Evaluation 
+r2 = r2_score(y_test, final_pred)
+mae = mean_absolute_error(y_test, final_pred)
+rmse = np.sqrt(mean_squared_error(y_test, final_pred))
+
+print("\n📊 Model Performance:")
+print(f"R²   : {r2:.4f}")
+print(f"MAE  : {mae:.2f}")
+print(f"RMSE : {rmse:.2f}")
+
+
+# Save everything for later 
+model_bundle = {
+    'classifier_stage1': clf_stage1,
+    'rf': rf_model,
+    'xgb': xgb_model,
+    'lgb': lgbm_model,
+    'weights': {'rf': w_rf, 'xgb': w_xgb, 'lgb': w_lgb},
+    'feature_list': list(X_train.columns)
 }
 
-# Save to pkl
-joblib.dump(ensemble_model, 'weighted_ensemble_model.pkl')
-print("\n✅ Saved integrated two-stage model as two_stage_power_model_integrated.pkl")
-
-# Load Data
-model_data = joblib.load("weighted_ensemble_model.pkl")
-
-classifier = model_data['classifier']
-rf = model_data['rf']
-xg = model_data['xg']
-lgb = model_data.get('lgb')
-weights = model_data['weights']
-feature_columns = model_data['columns']
-
-test_data = pd.read_csv("test_data.csv")
-test_data = test_data.fillna(test_data.mean(numeric_only=True))
-
-def feature_engineering(df):
-
-    # Weather Relations with data from dataset for accurate
-    df["temp_squared"] = df["temperature"] ** 2  # Extreme heat effects
-    df["wind_speed_humidity"] = df["wind-speed"] * df["humidity"]  # Mist
-
-    df["daylight_factor"] = np.maximum(0, np.cos(2 * np.pi * (df["distance-to-solar-noon"] - 0.5)))  # Approximates Sun Angle and peak at noon
-
-    df["rain_or_fog_likelihood"] = ((df["sky-cover"] >= 3) & (df["humidity"] >= 80) & (df["visibility"] <= 6)).astype(int)  # Flags potential rain or fog conditions
-
-    df["pollution_proxy"] = ((df["visibility"] < 7) & (df["average-pressure-(period)"] < 29.9)).astype(int)  # Poor visibility and low pressure likely pollution or haze
-
-    df["overheat_flag"] = (df["temperature"] > 30).astype(int)  # Very hot days potential panel efficiency drop
-
-    df["dew_morning_risk"] = ((df["temperature"] < 10) & (df["humidity"] > 90) & (df["distance-to-solar-noon"] < 0.2)).astype(int)  # Cold, humid early mornings possible dew or frost risk
-
-    df.drop(columns=["distance-to-solar-noon"])
-    return df
+joblib.dump(model_bundle, 'two_stage_solar_model.pkl')
+print("\n✅ Saved model as two_stage_solar_model.pkl")
 
 
-test_data = feature_engineering(test_data)
-X_test = test_data[feature_columns]
-y_test = test_data['power-generated']
+#  Zero-prediction analysis 
+n_zero_actual = np.sum(y_test == 0)
+n_zero_pred = np.sum(final_pred == 0)
+n_zero_correct = np.sum((y_test == 0) & (final_pred == 0))
+false_pos = np.sum((y_test == 0) & (final_pred > 0))
+false_neg = np.sum((y_test > 0) & (final_pred == 0))
 
-# Binary Prediction
-binary_predictions = classifier.predict(X_test)
-
-pred_rf = rf.predict(X_test)
-pred_xg = xg.predict(X_test)
-pred_lgb = lgb.predict(X_test) if lgb else np.zeros_like(pred_rf)
-
-ensemble_reg_preds = (
-    weights['rf'] * pred_rf +
-    weights['xg'] * pred_xg +
-    weights.get('lgb', 0.0) * pred_lgb
-)
-
-final_ensemble_preds = np.where(binary_predictions == 1, ensemble_reg_preds, 0)
-final_ensemble_preds[final_ensemble_preds < 0] = 0
-
-#Metrics
-mae = mean_absolute_error(y_test, final_ensemble_preds)
-rmse = np.sqrt(mean_squared_error(y_test, final_ensemble_preds))
-r2 = r2_score(y_test, final_ensemble_preds)
-
-print(f"\n📊 Model Evaluation (Two-Stage Ensemble):")
-print(f"R² Score  : {r2:.4f}")
-print(f"MAE       : {mae:.2f}")
-print(f"RMSE      : {rmse:.2f}")
-
-#Analysis of Zero
-num_true_zeros = np.sum(y_test == 0)
-num_predicted_zeros = np.sum(final_ensemble_preds == 0)
-num_correctly_predicted_zeros = np.sum((y_test == 0) & (final_ensemble_preds == 0))
-num_false_positives = np.sum((y_test == 0) & (final_ensemble_preds > 0))
-num_false_negatives = np.sum((y_test > 0) & (final_ensemble_preds == 0))
-
-print(f"\nAnalysis of Zero Predictions")
-print(f"Total actual zero power instances in test set: {num_true_zeros}")
-print(f"Total predicted zero power instances: {num_predicted_zeros}")
-print(f"Correctly predicted zero power instances: {num_correctly_predicted_zeros}")
-print(f"False Positives (predicted power, but actual was zero): {num_false_positives}")
-print(f"False Negatives (predicted zero, but actual was power): {num_false_negatives}")
+print("\n🔍 Zero Prediction Analysis:")
+print(f"Actual zeros       : {n_zero_actual}")
+print(f"Predicted zeros    : {n_zero_pred}")
+print(f"Correct zero preds : {n_zero_correct}")
+print(f"False positives    : {false_pos}")
+print(f"False negatives    : {false_neg}")
 
 
-# Actual vs Predicted
+#  Plots 
 plt.figure(figsize=(10, 6))
-plt.scatter(y_test, final_ensemble_preds, alpha=0.4, label="Predictions") # Use final_ensemble_preds
-plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', label="Perfect Prediction")
-plt.xlabel("Actual Power Generated")
-plt.ylabel("Predicted Power Generated")
-plt.title("Predicted vs. Actual Power Generated (Two-Stage Model)")
+plt.scatter(y_test, final_pred, alpha=0.4, label="Predictions")
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', label="Perfect")
+plt.xlabel("Actual Power")
+plt.ylabel("Predicted Power")
+plt.title("Predicted vs Actual (Two-Stage Model)")
 plt.legend()
 plt.grid(True)
-plt.tight_layout()
 plt.show()
 
 # Residuals
-residuals = y_test - final_ensemble_preds # Use final_ensemble_preds
+residuals = y_test - final_pred
 plt.figure(figsize=(10, 5))
 plt.scatter(y_test, residuals, alpha=0.4)
 plt.axhline(0, color='red', linestyle='--')
-plt.xlabel("Actual Power Generated")
-plt.ylabel("Residual (Actual - Predicted)")
-plt.title("Residuals vs Actual Power Generated (Two-Stage Model)")
+plt.xlabel("Actual Power")
+plt.ylabel("Residual")
+plt.title("Residuals vs Actual Power")
 plt.grid(True)
-plt.tight_layout()
 plt.show()
 
-# === Plot 3: Error distribution ===
+# Error distribution
 plt.figure(figsize=(10, 5))
 sns.histplot(residuals, bins=50, kde=True)
-plt.title("Distribution of Prediction Errors (Two-Stage Model)")
+plt.title("Prediction Error Distribution")
 plt.xlabel("Residual")
 plt.grid(True)
-plt.tight_layout()
 plt.show()
