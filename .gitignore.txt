@@ -1,0 +1,29 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+env/
+venv/
+
+# Data files 
+data/raw/
+
+
+# Trained models
+models/
+*.pkl
+*.joblib
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# VS Code and JetBrains IDE settings
+.vscode/
+.idea/
