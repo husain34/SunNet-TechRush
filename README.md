@@ -37,9 +37,8 @@ Each script trains a model or evaluates it using scoring metrics like RMSE, MAE,
   - `raw/`: Contains the original input datasets used for model training and evaluation.
     - `train.csv`: Dataset used for training models.
     - `test.csv`: Dataset used for testing/inference.
-    - `solarpowergeneration.csv`: Full dataset with solar energy generation and weather features.
+    
   
-
 - `images/`:  
   Stores graphs, charts, and visualizations such as prediction vs actual plots, error analysis, and evaluation results.
 
