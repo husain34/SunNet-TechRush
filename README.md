@@ -39,32 +39,42 @@ Each script trains a model or evaluates it using scoring metrics like RMSE, MAE,
     - `test.csv`: Dataset used for testing/inference.
     - `solarpowergeneration.csv`: Full dataset with solar energy generation and weather features.
   
+
 - `images/`:  
   Stores graphs, charts, and visualizations such as prediction vs actual plots, error analysis, and evaluation results.
 
-- `models/`:  
-  Contains saved machine learning models in `.pkl` format, such as XGBoost, and ensemble model.
-
-- `src/`:
-  - `models/`: Python scripts for training and saving models.
-  - `experiments/`: Scripts for running different model experiments, performance evaluation, and visualization.
- 
-- `ui/`:  
-  Contains early user interface prototypes for the project.  
-  - `prototype_ui.py`: A layout-only Streamlit app used to visualize the intended structure of the user interface (does not yet connect to   trained models).
 
 - `main_model/`:  
   Contains all files related to the final trained model.
   - `images/`: Graphs from training and testing the final model.
   - `model/`: The saved final model file (`.pkl` format).
   - `script/`: Python script containing the final model code.
-  
+
+
+- `models/`:  
+  Contains saved machine learning models in `.pkl` format, such as XGBoost, and ensemble model.
+
+
 - `notebooks/`:  
-  Jupyter notebooks used for data exploration, experimentation, and model development.  
+  Jupyter notebooks used for data exploration, experimentation, and model development.
+  
+
+- `src/`:
+  - `models/`: Python scripts for training and saving models.
+  - `experiments/`: Scripts for running different model experiments, performance evaluation, and visualization.
+ 
+
+- `ui/`:  
+  Contains early user interface prototypes for the project.  
+  - `prototype_ui.py`: A layout-only Streamlit app used to visualize the intended structure of the user interface (does not yet connect to   trained models).
+
+
+  - `README.md`:  
+  Project overview, structure, and updates.
+
 
 - `requirements.txt`:  
   Lists all Python dependencies required to run the project.
   
-- `README.md`:  
-  Project overview, structure, and updates.
+
 
