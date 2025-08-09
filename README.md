@@ -1,6 +1,11 @@
 # SunNet-TechRush
 A machine learning model to predict solar energy generation using historical weather data. Incorporates features like temperature, cloud cover, and seasonal patterns for accurate forecasting. Built by Team SunNet for TechRush Hackathon, PISB focused on sustainable energy solutions.
 
+## 📌 Features
+- Multiple models : Includes various regression algorithms for experimentation.
+- Data Handling : Works with raw training and testing datasets.
+- Visualization : Generates charts, graphs, and performance evaluation plots.
+  
 ## 🧪 Model Experiments
 
 The following scripts are located in `src/experiments/`:
