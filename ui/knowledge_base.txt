@@ -1,0 +1,111 @@
+# SunNet Project Knowledge Base
+
+## Project Overview
+[cite_start]SunNet is a web application that uses machine learning to predict solar energy generation based on meteorological data[cite: 2, 3]. [cite_start]It was developed by a team of four students—Husain Ghulam, Shreesh Jugade, Ayush Shevde, and Tanishk Deshpande—for the TechRush Hackathon 2025[cite: 3]. [cite_start]The project's goal is to provide an accurate and accessible tool for forecasting solar power[cite: 3].
+
+## The Machine Learning Model
+[cite_start]The core of SunNet is a sophisticated two-stage predictive model designed for efficiency and accuracy[cite: 5].
+
+### Stage 1: Classification
+[cite_start]First, a binary classification model (Random Forest Regressor) determines if any solar power can be generated[cite: 7]. [cite_start]It essentially answers the question: "Is it daytime and are conditions suitable for power generation?"[cite: 8]. [cite_start]If the model predicts that zero power will be generated, the process stops, saving computational resources[cite: 9].
+
+### Stage 2: Ensemble Regression
+[cite_start]If the classifier determines that power generation is possible, the data is passed to a weighted ensemble of three powerful regression models[cite: 11]:
+* [cite_start]**Random Forest (RF):** A robust model good at handling complex feature interactions[cite: 12].
+* [cite_start]**XGBoost:** A highly efficient and powerful gradient-boosting model[cite: 13].
+* [cite_start]**LightGBM (LGBM):** A memory-efficient and fast gradient-boosting model[cite: 15].
+
+[cite_start]The final prediction is a weighted average of the outputs from these three models: **20% RF, 40% XGBoost, and 40% LGBM**[cite: 16]. [cite_start]This ensemble approach makes the final prediction more stable and reliable than any single model could achieve[cite: 17].
+
+---
+
+## Model Performance and Accuracy
+The model's performance has been rigorously tested and validated.
+
+### Key Performance Metrics
+* [cite_start]**R-squared ($R^2$) Score:** **0.9124**[cite: 18]. [cite_start]This indicates that the model explains over 91% of the variance in the solar power data, signifying a very strong fit[cite: 18].
+* **Mean Absolute Error (MAE):** **1428.91 W**. On average, the model's prediction is off by approximately 1429 Watts.
+* **Root Mean Squared Error (RMSE):** **3103.88 W**. This metric gives a higher weight to larger errors, indicating the standard deviation of the prediction errors.
+
+### Predicted vs. Actual Power
+The scatter plot of predicted versus actual power shows the model's effectiveness. The predictions (blue dots) form a tight cluster around the red dashed line, which represents a perfect prediction. This visual evidence confirms the high R² score and the model's reliability across different power output levels.
+
+
+
+### Zero Prediction Analysis
+The first-stage classifier is highly effective at identifying when no power will be generated (e.g., at night).
+* **Actual Zeros in Test Data:** 251 instances.
+* **Correctly Predicted Zeros:** 238 instances.
+* **False Positives (Predicted Power > 0, Actual = 0):** 13 instances.
+* **False Negatives (Predicted Power = 0, Actual > 0):** 14 instances.
+This results in an accuracy of **94.8%** for correctly identifying zero-power conditions.
+
+---
+
+## Features and Feature Engineering
+The model uses historical weather data and enhances it with several engineered features to improve accuracy.
+
+### Input Weather Features
+* [cite_start]**Temperature (°F):** Correlated with sunny weather, though extreme heat can reduce panel efficiency[cite: 20].
+* [cite_start]**Humidity (%):** High humidity can be associated with cloud cover or condensation[cite: 21].
+* [cite_start]**Wind Speed (mph):** Wind provides a cooling effect that can slightly increase efficiency[cite: 22].
+* [cite_start]**Sky Cover (0-8):** A crucial feature where 0 is a clear sky and 8 is completely overcast[cite: 23].
+* [cite_start]**Visibility (mi):** Low visibility from fog, haze, or pollution blocks sunlight[cite: 25].
+* [cite_start]**Distance to Solar Noon:** A calculated feature representing the time difference from peak sunlight (around 12:30 PM)[cite: 26]. [cite_start]A value closer to 0 means more direct sun and higher power[cite: 27].
+
+### Engineered Features
+These features are created from the raw data to capture more complex relationships:
+* **temp_squared:** Captures the non-linear effect of extreme heat on panel efficiency.
+* **wind_speed_humidity:** A proxy for conditions like mist or fog that can affect solar irradiance.
+* **daylight_factor:** Approximates the sun's angle to better model the power curve throughout the day.
+* **rain_or_fog_likelihood:** A flag for conditions where rain or fog are likely (high sky cover, high humidity, low visibility).
+* **pollution_proxy:** A flag for potential air pollution or haze (low visibility combined with low atmospheric pressure).
+* **dew_morning_risk:** Identifies cold, humid mornings where dew or frost on panels could reduce initial output.
+
+---
+
+## The SunNet Web Application
+
+### Team and Roles
+* **Husain Ghulam:** ML Engineer (Led machine learning model creation and documentation).
+* **Shreesh Jugade:** Frontend Developer & ML Contributor (Built the UI/UX and assisted with ML development).
+* **Ayush Shevde:** ML Engineer (Assisted in creating and testing ML models and contributed to documentation).
+* **Tanishk Deshpande:** Frontend Assistant & GitHub Organizer (Assisted with frontend and managed the GitHub repository).
+
+### Technologies Used
+* **Machine Learning & Backend:** Python, Scikit-learn, XGBoost, LightGBM, Pandas.
+* **Frontend & UI:** Streamlit.
+
+### Application Pages
+The SunNet website is organized into several key sections:
+1.  **Home:** An introduction to the project.
+2.  **Data Visualisation:** Charts and metrics showing the model's performance.
+3.  **Predictor:** An interactive tool to get live solar power predictions.
+4.  **SunNet AI Assistant:** A chatbot (powered by this knowledge base) to answer questions.
+5.  **Our Team:** Information about the project creators.
+
+---
+
+## General Solar Energy Information
+
+### Q: How do solar panels work?
+[cite_start]A: Solar panels are made of photovoltaic (PV) cells[cite: 31]. [cite_start]When sunlight hits these cells, it creates a direct current (DC) of electricity[cite: 31]. [cite_start]An inverter then changes this DC power to alternating current (AC) power that can be used in homes and businesses[cite: 32].
+
+### Q: What are the main factors affecting solar panel output?
+A: The primary factors are:
+1.  [cite_start]**Irradiance:** The amount of solar energy hitting the panel[cite: 35].
+2.  [cite_start]**Temperature:** Panels are less efficient at very high temperatures[cite: 37].
+3.  [cite_start]**Shading:** Even small shadows can significantly reduce output[cite: 38].
+4.  [cite_start]**Panel Orientation and Tilt:** The angle of the panel relative to the sun[cite: 39].
+5.  [cite_start]**Cleanliness:** Dust, dirt, or snow can block sunlight and reduce efficiency by up to 25%[cite: 40, 66].
+
+### Fun Solar Facts
+* [cite_start]The sun sends enough energy to Earth in **one hour** to power the entire world for a year[cite: 64].
+* [cite_start]Cool, sunny days can generate more power than very hot, sunny days because panels are more efficient in cooler temperatures[cite: 65].
+
+---
+
+## Glossary of Terms
+* [cite_start]**PV Cell:** Photovoltaic cell, the basic unit of a solar panel[cite: 77].
+* [cite_start]**Inverter:** A device that converts DC electricity from panels to usable AC electricity[cite: 78].
+* [cite_start]**Irradiance:** The measure of solar power per unit of area[cite: 79].
