@@ -428,27 +428,20 @@ st.markdown("""
 
 
 @st.cache_resource
+@st.cache_resource
 def load_model():
     """Loads the pre-trained model from disk."""
     try:
+        # 1. You CHECK for the model here:
         if not os.path.exists("main_model/model/final_weighted_ensemble_model.pkl"):
             st.warning("🚫 Model file not found. Using demo mode.")
-            return {
-                'columns': [
-                    "temperature", "humidity", "wind-speed", "distance-to-solar-noon",
-                    "sky-cover", "visibility", "average-pressure-(period)",
-                    "wind-direction", "average-wind-speed-(period)", "temp_squared",
-                    "wind_speed_humidity", "daylight_factor", "rain_or_fog_likelihood",
-                    "pollution_proxy", "overheat_flag", "dew_morning_risk"
-                ],
-                'classifier': None, 'rf': None, 'xg': None, 'lgb': None,
-                'weights': {'rf': 0.2, 'xg': 0.4, 'lgb': 0.4}
-            }
-        return joblib.load("weighted_ensemble_model.pkl")
+            return { ... } # returns demo data
+        
+        # 2. But you LOAD the model from here:
+        return joblib.load("weighted_ensemble_model.pkl") 
     except Exception as e:
         st.error(f"❌ Error loading model: {e}")
         st.stop()
-
 @st.cache_data(ttl=600)  
 def get_live_weather(city, api_key):
     """Fetches and processes live weather data from WeatherAPI.com."""
@@ -1438,4 +1431,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
