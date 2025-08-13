@@ -434,7 +434,7 @@ def load_model():
     """
     model_path = "weighted_ensemble_model.pkl"
     # This is the direct download link you created in Step 2.
-    model_url = "https://drive.google.com/file/d/1eVlzFkS433sBDaq_9xJeH-QMpsXP0yE3/view?usp=drive_link" 
+    model_url = "https://drive.google.com/uc?export=download&id=1eVlzFkS433sBDaq_9xJeH-QMpsXP0yE3"
 
     # Check if the model file already exists
     if not os.path.exists(model_path):
@@ -1437,4 +1437,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
