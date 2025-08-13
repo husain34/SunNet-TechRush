@@ -431,7 +431,7 @@ st.markdown("""
 def load_model():
     """Loads the pre-trained model from disk."""
     try:
-        if not os.path.exists("weighted_ensemble_model.pkl"):
+        if not os.path.exists("main_model/model/final_weighted_ensemble_model.pkl"):
             st.warning("🚫 Model file not found. Using demo mode.")
             return {
                 'columns': [
@@ -1438,3 +1438,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
