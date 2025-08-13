@@ -433,13 +433,10 @@ def load_model():
     Loads the model from a local path or downloads it from a URL if not present.
     """
     model_path = "weighted_ensemble_model.pkl"
-    # This is the direct download link you created in Step 2.
     model_url = "https://drive.google.com/uc?export=download&id=1eVlzFkS433sBDaq_9xJeH-QMpsXP0yE3"
 
-    # Check if the model file already exists
     if not os.path.exists(model_path):
         st.info("Downloading model... This may take a moment.")
-        # Use requests to download the file
         with requests.get(model_url, stream=True) as r:
             r.raise_for_status()
             with open(model_path, 'wb') as f:
@@ -447,7 +444,6 @@ def load_model():
                     f.write(chunk)
         st.success("Model downloaded successfully!")
 
-    # If the file exists (or was just downloaded), load it
 @st.cache_data(ttl=600)  
 def get_live_weather(city, api_key):
     """Fetches and processes live weather data from WeatherAPI.com."""
@@ -1437,5 +1433,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
