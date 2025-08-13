@@ -1,27 +1,25 @@
-# Core libraries
+# Core & ML Libraries
 numpy
 pandas
-os
-
-# Visualization
-matplotlib
-
-# Machine Learning
 scikit-learn
-RandomForestRegressor
-RandomForestClassifier
-train_test_split
-KFold
-r2_score, mean_absolute_error, mean_squared_error
-xgboost 
+joblib
+xgboost
 lightgbm
 ngboost
 
-# Streamlit app
+# Streamlit & Web
 streamlit
+requests
+python-dotenv
 
-# For saving/loading models
-joblib
+# Visualization
+matplotlib
+plotly
 
-
-
+# LangChain & AI Libraries
+langchain
+langchain-core
+langchain-community
+langchain-google-genai
+google-generativeai
+faiss-cpu
