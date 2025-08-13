@@ -429,26 +429,25 @@ st.markdown("""
 
 @st.cache_resource
 def load_model():
-    """Loads the pre-trained model from disk."""
-    try:
-        if not os.path.exists("weighted_ensemble_model.pkl"):
-            st.warning("🚫 Model file not found. Using demo mode.")
-            return {
-                'columns': [
-                    "temperature", "humidity", "wind-speed", "distance-to-solar-noon",
-                    "sky-cover", "visibility", "average-pressure-(period)",
-                    "wind-direction", "average-wind-speed-(period)", "temp_squared",
-                    "wind_speed_humidity", "daylight_factor", "rain_or_fog_likelihood",
-                    "pollution_proxy", "overheat_flag", "dew_morning_risk"
-                ],
-                'classifier': None, 'rf': None, 'xg': None, 'lgb': None,
-                'weights': {'rf': 0.2, 'xg': 0.4, 'lgb': 0.4}
-            }
-        return joblib.load("weighted_ensemble_model.pkl")
-    except Exception as e:
-        st.error(f"❌ Error loading model: {e}")
-        st.stop()
+    """
+    Loads the model from a local path or downloads it from a URL if not present.
+    """
+    model_path = "weighted_ensemble_model.pkl"
+    # This is the direct download link you created in Step 2.
+    model_url = "https://drive.google.com/file/d/1eVlzFkS433sBDaq_9xJeH-QMpsXP0yE3/view?usp=drive_link" 
 
+    # Check if the model file already exists
+    if not os.path.exists(model_path):
+        st.info("Downloading model... This may take a moment.")
+        # Use requests to download the file
+        with requests.get(model_url, stream=True) as r:
+            r.raise_for_status()
+            with open(model_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        st.success("Model downloaded successfully!")
+
+    # If the file exists (or was just downloaded), load it
 @st.cache_data(ttl=600)  
 def get_live_weather(city, api_key):
     """Fetches and processes live weather data from WeatherAPI.com."""
@@ -1438,3 +1437,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
