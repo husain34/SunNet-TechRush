@@ -27,3 +27,5 @@ Thumbs.db
 # VS Code and JetBrains IDE settings
 .vscode/
 .idea/
+
+.streamlit/secrets.toml
