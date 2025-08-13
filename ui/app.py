@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import requests
+import os
 from datetime import datetime, time as dt_time, timedelta
 import base64
-import os
-import requests
 from dotenv import load_dotenv
 import asyncio
 import json
@@ -430,22 +430,33 @@ st.markdown("""
 @st.cache_resource
 def load_model():
     """
-    Loads the model from a local path or downloads it from a URL if not present.
+    Loads the model from a local path or downloads it from a direct Google Drive link if not present.
     """
     model_path = "weighted_ensemble_model.pkl"
-    # This is the direct download link you created in Step 2.
-    model_url = "https://drive.google.com/file/d/1eVlzFkS433sBDaq_9xJeH-QMpsXP0yE3/view?usp=drive_link" 
+    # Correct direct download link
+    model_url = "https://drive.google.com/uc?export=download&id=1eVlzFkS433sBDaq_9xJeH-QMpsXP0yE3"
 
     # Check if the model file already exists
     if not os.path.exists(model_path):
-        st.info("Downloading model... This may take a moment.")
-        # Use requests to download the file
-        with requests.get(model_url, stream=True) as r:
-            r.raise_for_status()
-            with open(model_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-        st.success("Model downloaded successfully!")
+        try:
+            # Use requests to download the file
+            with requests.get(model_url, stream=True) as r:
+                r.raise_for_status()  # This will raise an exception for bad status codes
+                with open(model_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+        except requests.exceptions.RequestException as e:
+            st.error(f"Failed to download the model. Error: {e}")
+            # Stop the app if the model can't be downloaded
+            st.stop()
+
+    # If the file exists (or was just downloaded), load it and return it
+    try:
+        model_dict = joblib.load(model_path)
+        return model_dict
+    except Exception as e:
+        st.error(f"Failed to load the model file. It might be corrupted. Error: {e}")
+        st.stop()
 
     # If the file exists (or was just downloaded), load it
 @st.cache_data(ttl=600)  
@@ -486,43 +497,81 @@ def get_live_weather(city, api_key):
     except Exception as e:
         return {"error": f"An unexpected error occurred: {e}"}
 
-@st.cache_data(ttl=3600)  
-@st.cache_data(ttl=3600) 
-def get_7day_forecast(city, api_key):
-    """Fetches 7-day weather forecast from WeatherAPI.com."""
+@st.cache_data(ttl=3600)
+def get_historical_and_forecast_weather(city, api_key):
+    """Fetches weather data for the last 3 days, today, and the next 3 days."""
     if not api_key:
         return {"error": "WeatherAPI.com API key not found."}
+
+    all_days_data = []
+    today = datetime.now().date()
+    official_city_name = city # Default city name
+
+    # --- 1. Fetch Historical Data (3 past days) ---
+    historical_days_to_fetch = [today - timedelta(days=i) for i in range(3, 0, -1)]
     
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={api_key}&q={city}&days=7"
+    for date_to_fetch in historical_days_to_fetch:
+        date_str = date_to_fetch.strftime("%Y-%m-%d")
+        history_url = f"http://api.weatherapi.com/v1/history.json?key={api_key}&q={city}&dt={date_str}"
+        try:
+            response = requests.get(history_url)
+            history_data = response.json()
+            if "error" in history_data:
+                st.warning(f"Could not fetch history for {date_str}: {history_data['error']['message']}")
+                continue
+            
+            day_entry = history_data.get("forecast", {}).get("forecastday", [])[0]
+            day_data = day_entry.get("day", {})
+            hourly_clouds = [hour.get("cloud", 0) for hour in day_entry.get("hour", [])]
+            avg_cloud = np.mean(hourly_clouds) if hourly_clouds else 0
+            
+            all_days_data.append({
+                "date": day_entry.get("date"),
+                "temperature": day_data.get("avgtemp_f"),
+                "humidity": day_data.get("avghumidity"),
+                "wind_speed": day_data.get("maxwind_mph"),
+                "sky_cover": int(round(avg_cloud / 100 * 8)),
+                "visibility": day_data.get("avgvis_miles"),
+                "condition": day_data.get("condition", {}).get("text", "N/A")
+            })
+        except Exception as e:
+            st.warning(f"An error occurred fetching history for {date_str}: {e}")
+            continue
+
+    # --- 2. Fetch Forecast Data (Today + 3 future days) ---
+    forecast_url = f"http://api.weatherapi.com/v1/forecast.json?key={api_key}&q={city}&days=4"
     try:
-        response = requests.get(url)
-        data = response.json()
-        if "error" in data:
-            return {"error": f"Error from WeatherAPI: {data['error']['message']}"}
+        response = requests.get(forecast_url)
+        forecast_data = response.json()
+        if "error" in forecast_data:
+            return {"error": f"Error from WeatherAPI Forecast: {forecast_data['error']['message']}"}
         
+        location = forecast_data.get("location", {})
+        official_city_name = location.get("name", city)
         
-        location = data.get("location", {})
-        official_city_name = location.get("name", city) 
-        
-        forecast_days = []
-        for day in data.get("forecast", {}).get("forecastday", []):
+        forecast_days = forecast_data.get("forecast", {}).get("forecastday", [])
+        for day in forecast_days:
             day_data = day.get("day", {})
-            forecast_days.append({
+            hourly_clouds = [hour.get("cloud", 0) for hour in day.get("hour", [])]
+            avg_cloud = np.mean(hourly_clouds) if hourly_clouds else 0
+            
+            all_days_data.append({
                 "date": day.get("date"),
                 "temperature": day_data.get("avgtemp_f"),
                 "humidity": day_data.get("avghumidity"),
                 "wind_speed": day_data.get("maxwind_mph"),
-                "sky_cover": int(round(day_data.get("cloud", 0) / 100 * 8)),
+                "sky_cover": int(round(avg_cloud / 100 * 8)),
                 "visibility": day_data.get("avgvis_miles"),
-                "condition": day_data.get("condition", {}).get("text", "")
+                "condition": day_data.get("condition", {}).get("text", "N/A")
             })
-        
-        
-        return {"forecast": forecast_days, "city_name": official_city_name}
-      
-
+            
     except Exception as e:
-        return {"error": f"An error occurred: {e}"}
+        return {"error": f"An error occurred fetching forecast data: {e}"}
+
+    if not all_days_data:
+         return {"error": "Could not retrieve any weather data for the specified location."}
+
+    return {"outlook": all_days_data, "city_name": official_city_name}
 
 def check_unusual_prediction_and_explain(prediction_value, weather_conditions):
     """Check if prediction is unusual and get AI explanation if needed."""
@@ -790,120 +839,127 @@ def home_page():
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def seven_day_forecast_page(model_dict):
+def outlook_page(model_dict):
     set_background("Other_bg.jpg")
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
     
-    st.markdown("<h1 style='text-align: center;'>📅 7-Day Solar Generation Forecast</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>Plan your solar energy usage for the week ahead!</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>📅 7-Day Solar Outlook</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitle'>Review past performance and plan for the coming days!</p>", unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        
-        forecast_city_input = st.text_input("Enter city for 7-day forecast", placeholder="e.g., New York, USA", key="forecast_city_input")
+        outlook_city_input = st.text_input("Enter city for 7-day outlook", placeholder="e.g., New York, USA", key="outlook_city_input")
     with col2:
-        
         st.write("") 
         st.write("")
-        if st.button("Get 7-Day Forecast", use_container_width=True):
-            if forecast_city_input:
-                with st.spinner(f"Fetching 7-day forecast for {forecast_city_input}..."):
-                    
-                    api_response = get_7day_forecast(forecast_city_input, WEATHERAPI_API_KEY)
-                    
-                   
-                    st.session_state['forecast_api_response'] = api_response
-
+        if st.button("Get 7-Day Outlook", use_container_width=True):
+            if outlook_city_input:
+                with st.spinner(f"Fetching 7-day outlook for {outlook_city_input}..."):
+                    api_response = get_historical_and_forecast_weather(outlook_city_input, WEATHERAPI_API_KEY)
+                    st.session_state['outlook_api_response'] = api_response
                     
                     if "error" in api_response:
                         st.error(f"❌ {api_response['error']}")
                     else:
-                       
-                        official_city_name = api_response.get('city_name', forecast_city_input.title())
-                        st.success(f"✅ Forecast data fetched for {official_city_name}!")
+                        official_city_name = api_response.get('city_name', outlook_city_input.title())
+                        st.success(f"✅ Outlook data fetched for {official_city_name}!")
             else:
                 st.warning("Please enter a city name.")
     
-    
-    if 'forecast_api_response' in st.session_state and "error" not in st.session_state['forecast_api_response']:
-        response_data = st.session_state['forecast_api_response']
-        
-        
-        forecast = response_data['forecast']
+    if 'outlook_api_response' in st.session_state and "error" not in st.session_state['outlook_api_response']:
+        response_data = st.session_state['outlook_api_response']
+        outlook = response_data['outlook']
         city_name = response_data['city_name']
         
+        st.markdown(f"<h2 style='text-align: center; margin-top: 2rem;'>☀ 7-Day Outlook for {city_name}</h2>", unsafe_allow_html=True)
         
-        st.markdown(f"<h2 style='text-align: center; margin-top: 2rem;'>☀ 7-Day Solar Predictions for {city_name}</h2>", unsafe_allow_html=True)
+        predictions, date_strings, weather_conditions = [], [], []
         
-        
-        predictions = []
-        dates = []
-        weather_conditions = []
-        
-        for day in forecast:
+        for day in outlook:
+            if any(key not in day or day[key] is None for key in ['temperature', 'wind_speed', 'sky_cover', 'visibility', 'humidity']):
+                st.warning(f"Skipping prediction for {day.get('date')} due to incomplete data.")
+                continue
+
             noon_distance = calculate_distance_to_solar_noon(dt_time(12, 0))
             input_data = {
-                "distance-to-solar-noon": noon_distance, "temperature": day.get('temperature', 70),
-                "wind-direction": 18, "wind-speed": day.get('wind_speed', 5.0),
-                "sky-cover": day.get('sky_cover', 2), "visibility": day.get('visibility', 6.0),
-                "humidity": day.get('humidity', 50), "average-wind-speed-(period)": day.get('wind_speed', 5.0),
+                "distance-to-solar-noon": noon_distance, "temperature": day['temperature'],
+                "wind-direction": 18, "wind-speed": day['wind_speed'],
+                "sky-cover": day['sky_cover'], "visibility": day['visibility'],
+                "humidity": day['humidity'], "average-wind-speed-(period)": day['wind_speed'],
                 "average-pressure-(period)": 29.9
             }
             prediction = predict_power(model_dict, pd.DataFrame([input_data]))
             predictions.append(prediction)
-            dates.append(day['date'])
+            date_strings.append(day['date'])
             weather_conditions.append({
-                'temp': day.get('temperature', 'N/A'), 'humidity': day.get('humidity', 'N/A'),
-                'condition': day.get('condition', 'N/A')
+                'temp': day['temperature'], 'humidity': day['humidity'], 'condition': day.get('condition', 'N/A')
             })
         
+        if not date_strings:
+            st.error("No valid data was available to generate predictions. Please try another location.")
+            st.stop()
+
+        plot_dates = [datetime.strptime(d, '%Y-%m-%d') for d in date_strings]
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(
-            x=dates, y=predictions, mode='lines+markers',
+            x=plot_dates, y=predictions, mode='lines+markers',
             line=dict(color='#81e6d9', width=3), marker=dict(size=10, color='#fbbf24'),
             name='Solar Power Prediction'
         ))
         
+        today_date = datetime.now().date()
+        today_datetime = datetime.combine(today_date, dt_time(0, 0))
         
+        # FIX: Draw the line and add the annotation in two separate steps
+        # 1. Draw the vertical line without any text
+        fig.add_vline(x=today_datetime, line_width=2, line_dash="dash", line_color="#fbbf24")
+
+        # 2. Add the annotation manually
+        fig.add_annotation(
+            x=today_datetime,
+            y=np.max(predictions) * 1.05, # Position text slightly above the highest point
+            text="Today",
+            showarrow=False,
+            font=dict(color="#fbbf24", size=14),
+            bgcolor="rgba(15, 23, 42, 0.8)" # Add a background for better readability
+        )
+
         fig.update_layout(
-            title=f"7-Day Solar Power Forecast for {city_name}",
-            xaxis_title="Date", yaxis_title="Solar Power (W)",
+            title=f"7-Day Solar Power Outlook for {city_name}",
+            xaxis_title="Date", yaxis_title="Predicted Solar Power (W) at Noon",
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#f1f5f9'), title_font=dict(color='#81e6d9', size=20)
         )
         st.plotly_chart(fig, use_container_width=True)
         
-        
         st.markdown("<h3 style='text-align: center; margin-top: 2rem;'>📊 Daily Breakdown</h3>", unsafe_allow_html=True)
-        cols = st.columns(7)
-        for i, (date, prediction, weather) in enumerate(zip(dates, predictions, weather_conditions)):
+        num_days = len(date_strings)
+        cols = st.columns(num_days) if num_days > 0 else []
+        for i, (date, prediction, weather) in enumerate(zip(date_strings, predictions, weather_conditions)):
             with cols[i]:
                 date_obj = datetime.strptime(date, '%Y-%m-%d')
-                day_name = date_obj.strftime('%a')
-                month_day = date_obj.strftime('%m/%d')
+                is_today = date_obj.date() == today_date
+                border_style = "border: 2px solid #fbbf24;" if is_today else ""
                 st.markdown(f"""
-                <div class="metric-card" style="padding: 1rem; margin-bottom: 0;">
-                    <h4 style="color: #81e6d9; font-size: 0.8rem;">{day_name}</h4>
-                    <p style="color: #fbbf24; font-size: 0.7rem; margin: 0.2rem 0;">{month_day}</p>
+                <div class="metric-card" style="padding: 1rem; margin-bottom: 0; {border_style}">
+                    <h4 style="color: #81e6d9; font-size: 0.8rem;">{date_obj.strftime('%a')}</h4>
+                    <p style="color: #fbbf24; font-size: 0.7rem; margin: 0.2rem 0;">{date_obj.strftime('%m/%d')}</p>
                     <p style="color: #81e6d9; font-size: 1.2rem; margin: 0.5rem 0;">{prediction:.0f}W</p>
                     <p style="color: #cbd5e1; font-size: 0.7rem; margin: 0;">{weather['temp']:.1f}°F</p>
                     <p style="color: #cbd5e1; font-size: 0.6rem; margin: 0;">{weather['condition']}</p>
                 </div>
                 """, unsafe_allow_html=True)
         
-     
-        avg_prediction = np.mean(predictions)
-        max_prediction = max(predictions)
-        min_prediction = min(predictions)
         st.markdown("---")
-        st.markdown("<h3 style='text-align: center;'>📈 Weekly Summary</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center;'>📈 7-Day Summary</h3>", unsafe_allow_html=True)
         summary_cols = st.columns(3)
         with summary_cols[0]:
-            st.markdown(f"""<div class="metric-card"><h4>Average Daily Output</h4><p>{avg_prediction:.0f} W</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="metric-card"><h4>Average Daily Output</h4><p>{np.mean(predictions):.0f} W</p></div>""", unsafe_allow_html=True)
         with summary_cols[1]:
-            st.markdown(f"""<div class="metric-card"><h4>Peak Day Output</h4><p>{max_prediction:.0f} W</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="metric-card"><h4>Peak Day Output</h4><p>{max(predictions):.0f} W</p></div>""", unsafe_allow_html=True)
         with summary_cols[2]:
-            st.markdown(f"""<div class="metric-card"><h4>Lowest Day Output</h4><p>{min_prediction:.0f} W</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class="metric-card"><h4>Lowest Day Output</h4><p>{min(predictions):.0f} W</p></div>""", unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1409,7 +1465,7 @@ def our_team_page():
 
 def main():
     """Main function to run the Streamlit app."""
-  
+ 
     model_dict = load_model()
 
     with st.sidebar:
@@ -1417,9 +1473,8 @@ def main():
         
         page = st.radio(
             "Navigation",
-            ("🏠 Home", "📊 Data Visualisation","⚙ Predictor", "📅 7-Day Forecast", "🤖 AI Assistant" , "👨‍🔬 Our Team"),
-            label_visibility="collapsed",
-            horizontal=True 
+            ("🏠 Home", "📊 Data Visualisation","⚙ Predictor", "📅 7-Day Outlook", "🤖 AI Assistant" , "👨‍🔬 Our Team"),
+            label_visibility="collapsed"
         )
 
     if page == "🏠 Home":
@@ -1428,8 +1483,8 @@ def main():
         data_visualisation_page()
     elif page == "⚙ Predictor":
         predictor_page(model_dict)
-    elif page == "📅 7-Day Forecast":
-        seven_day_forecast_page(model_dict)
+    elif page == "📅 7-Day Outlook":
+        outlook_page(model_dict) # Changed from seven_day_forecast_page
     elif page == "🤖 AI Assistant":
         ai_assistant_page(model_dict)
     elif page == "👨‍🔬 Our Team":
